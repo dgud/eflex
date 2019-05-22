@@ -305,7 +305,7 @@ window_loop(#state{mouse_check_interval = MouseCheckInterval} = S, OldS) ->
     S2 = update_year(S, OldS),
     receive
         Event ->
-	    %% io:format("Received: ~p\n", [Event]),
+	    io:format("Received: ~p\n", [Event]),
             S3 = 
                 case Event of
 		    #wx{id = ?MAIN_FRAME_ID} ->
@@ -342,7 +342,7 @@ window_loop(#state{mouse_check_interval = MouseCheckInterval} = S, OldS) ->
 handle_main(#state{options = O,
                    main_grid = MainGrid} = S,
 	    Event) ->
-    %% io:format("Received main event: ~p\n", [Event]),
+    io:format("Received main event: ~p\n", [Event]),
     case Event of
 	#wx{id = ?MAIN_FLEX_ID,
 	    event = #wxGrid{type = grid_cell_change,
@@ -384,7 +384,7 @@ handle_other(#state{main_frame = Mframe,
 		    options = O,
 		    main_grid = MainGrid} = S,
 	     Event) ->
-    %% io:format("Received other event: ~p\n", [Event]),
+    io:format("Received other event: ~p\n", [Event]),
     case Event of
 	{select_activity, Row, _Col} ->
 	    wx:batch(fun() -> activity_popup(S, Row) end);
@@ -580,7 +580,7 @@ about() ->
 	"Latest compilation: " ++ Time.
 
 handle_action_type(S, Event) ->
-    %% io:format("Received action event: ~p\n", [Event]),
+    io:format("Received action event: ~p\n", [Event]),
     case Event of
    	#wx{id = ?ACT_FRAME_ID,
 	    event = #wxClose{type = close_window}} ->
@@ -789,7 +789,7 @@ unify_shares(#eflex_year{config =#eflex_config{activity_types = Etypes} = Econfi
     Eyear#eflex_year{config = Econfig2}.
 
 handle_action_list(S, Event) ->
-    %% io:format("Received activity list event: ~p\n", [Event]),
+    io:format("Received activity list event: ~p\n", [Event]),
     case Event of
    	#wx{id = ?CLOSE_ITEM,
 	    userData = #activity_list{name = ActName}} ->
@@ -1175,6 +1175,7 @@ create_main_grid(Panel, #options{n_rows = Nrows}) ->
     [wxGrid:setCellTextColour(Grid, UnspecRow, Col, ?wxRED)
      || Col <- lists:seq(?MONDAY_COL, ?SUNDAY_COL)],
     wxGrid:enableEditing(Grid, true),
+    wxGrid:enableCellEditControl(Grid),
 
     %% Connect to grid
     WinPid = self(),
@@ -1214,7 +1215,15 @@ cell_set_read_only(Grid, Row, Col) ->
 
 cell_set_read_write(Grid, Row, Col) ->
     wxGrid:setReadOnly(Grid, Row, Col, [{isReadOnly, false}]),
-    wxGrid:setCellBackgroundColour(Grid, Row, Col, ?wxWHITE).
+    BG = case is_dark_mode(wxGrid:getLabelBackgroundColour(Grid)) of
+             true -> wxSystemSettings:getColour(?wxSYS_COLOUR_BTNSHADOW);
+             false -> ?wxWHITE
+         end,
+    wxGrid:setCellBackgroundColour(Grid, Row, Col, BG).
+
+is_dark_mode({R,G,B,_}) ->
+    ((R+G+B) div 3) < 100.
+
 
 recreate_activity_type_window(#state{activity_frame = undefined} = S) ->
     S;
@@ -1957,7 +1966,7 @@ grid_cell_left_click(WinPid,
 	Row =:= UnspecRow ->
 	    WinPid ! {copy_cell, Row, Col, X, Y};
 	true ->
-	    WinPid ! {copy_cell, Row, Col, X, Y},
+	    %% WinPid ! {copy_cell, Row, Col, X, Y},
 	    wxEvent:skip(EventRef)
     end.
 
@@ -2009,8 +2018,9 @@ key_press(WinPid,
 	  #wx{event = #wxKey{type        = key_down,
 			     keyCode     = Key,
 			     controlDown = Control,
-			     shiftDown   = Shift}},
+			     shiftDown   = Shift}=_Key},
 	  EventRef) ->
+    io:format("key press: ~p~n",[Key]),
     case Key of
 	?WXK_HOME ->
 	    WinPid ! {week_selected, eflex_lib:week_of_the_year(date())};
